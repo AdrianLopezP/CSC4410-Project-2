@@ -6,21 +6,24 @@
  * @author Devin Rollins
  **/
 
-import java.util.*;
 import java.util.concurrent.*;
+import java.util.*;
+import java.util.Comparator;
+
 
 public class MyScheduler {
     private String job;
+    private int numJobs;
     LinkedBlockingQueue<Job> inQueue;
     LinkedBlockingQueue<Job> outQueue;
-    int scalingFactorOut = 0;
-    int scalingFactorIn = 0;
+    int scalingFactorOut = 2;
+    int scalingFactorIn = 2;
     
     //MAIN CONSTRUCOR
     public MyScheduler(int numJobs, String property) {
         this.inQueue = new LinkedBlockingQueue<Job>(numJobs*scalingFactorIn);
-
         this.outQueue = new LinkedBlockingQueue<Job>(numJobs*scalingFactorOut);
+        this.numJobs = numJobs;
     }
 
     // Constructors
@@ -36,43 +39,108 @@ public class MyScheduler {
         return inQueue;
     }
 
-    //MAX WAIT - FCFS(First Come First Serve) - Blocking Que
-    public void maxWait(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out){
-        BlockingQueue<Job> newBQueue = new LinkedBlockingQueue<Job>();
-        // While there are jobs in the incoming queue add them to the new Blocking Queue
-        while (!in.isEmpty()){
-            Job steve = in.remove();
-            newBQueue.add(steve);
-        }
-        
-        //add to out
-        while (!newBQueue.isEmpty()){
-            Job jobs = newBQueue.remove();
-            out.add(jobs);
-        }
-        //send off to cpu
-    }
-    //AVG WAIT - SJF(Shortest Job First) - Priority queue
-    public void avgWait(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out){
 
+
+    //MAX WAIT - FCFS(First Come First Serve) - Blocking Que
+    public void maxWait(int numJobs, LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out){
+        BlockingQueue<Job> newBQueue = new LinkedBlockingQueue<Job>();
+        Thread inThread = new Thread(()->{
+            int counter = 0;
+            // While there are jobs in the incoming queue add them to the new Blocking Queue
+            while (counter < numJobs){ // Stop when we reach the number of max jobs
+                try{
+                    Job steve = in.take();  //Grab a job from the incoming queue and save it into the temp queue
+                    newBQueue.put(steve);
+                    counter++;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }  
+                }     
+        });
+        inThread.start();
+
+        Thread outThread = new Thread(()->{
+            int otherCounter = 0;
+            //add to out
+            while (otherCounter < numJobs){   // Keep adding jobs until you reach max Jobs 
+                try{
+                    Job jobs = newBQueue.take();
+                    out.put(jobs);     
+                    otherCounter++;               
+                } catch(InterruptedException e){
+                    e.printStackTrace();
+                }
+
+            }
+        });
+        outThread.start();
+
+        //send off to cpu
+        // me no understando. confused monkeys
     }
+    
+
+    
+    //AVG WAIT - SJF(Shortest Job First) - Priority queue
+    // /*
+    public void avgWait(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out, int numJobs){
+        Comparator<Job> c = (one,two)-> {
+  
+            long oneLength = one.getLength();
+            long twolength = two.getLength();
+            
+            //compare lengths of jobs
+            if (twolength > onelength){
+                return
+            }
+
+            
+            //if return is negative job one is shorter
+            //if return is positive, job two is shorter
+            //if return is 0, jobs are same length
+                
+            return 0; 
+            
+        };     
+        
+        PriorityQueue<Job> priority = new PriorityQueue<Job>(numJobs, c);
+
+        
+
+    }   // */
 
     //DEAEDLINE - EDF(Earliest Deadline First) - Priority Queue
-    public void deadline(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out){
-
+   public void deadline(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
+    PriorityQueue<Job> priorityQueue = new PriorityQueue<>((a, b) -> Long.compare(a.getDeadline(), b.getDeadline()));
+    while (!in.isEmpty() || !priorityQueue.isEmpty()) {
+        try {
+            if (!in.isEmpty()) {
+                Job steve = in.take();
+                priorityQueue.offer(steve);
+            }
+            if (!priorityQueue.isEmpty()) {
+                Job steve = priorityQueue.poll();
+                out.put(steve);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
+}
 
     //COMBINED - Fancy(Max wait + 2(Average Wait) ?????
-     public void combined(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out){
-
+    public void combined(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
+        
     }
 
 
 
     
-    public void run(LinkedBlockingQueue<Job> inQueue, LinkedBlockingQueue<Job> outQueue) {
-        maxWait(inQueue, outQueue);
+    public void run() {
+        maxWait(numJobs, inQueue, outQueue);
+        avgWait(inQueue, outQueue, numJobs);
+        deadline(inQueue, outQueue);
+        combined(inQueue, outQueue);
 
-    
     }
 }
