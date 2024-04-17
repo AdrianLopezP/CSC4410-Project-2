@@ -76,37 +76,60 @@ public class MyScheduler {
         outThread.start();
 
         //send off to cpu
-        // me no understando. confused monkeys
+        // me understando. intelligent monkeys
     }
     
-
-    
     //AVG WAIT - SJF(Shortest Job First) - Priority queue
-    // /*
     public void avgWait(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out, int numJobs){
         Comparator<Job> c = (one,two)-> {
-  
+            
             long oneLength = one.getLength();
-            long twolength = two.getLength();
+            long twoLength = two.getLength();
             
             //compare lengths of jobs
-            if (twolength > onelength){
-                return
+            // if (oneLength < twolength){
+            //     return -1;   //if return is negative, job one is shorter
+            // }
+            // if (oneLength == twolength){
+            //     return 0;  //if return 0, jobs are same length
+            // }
+            // return 1;   //if return is postive, job one is longer
+
+            return Long.compare(oneLength, twoLength);
+                       
+        };  
+        
+        PriorityBlockingQueue<Job> priority = new PriorityBlockingQueue<>(numJobs, c);       
+
+        // Take shortest job from inQueue then add to priority
+        Thread inThread = new Thread(()->{
+            int counter = 0;
+            while (counter < numJobs){ // Stop when we reach the number of max jobs
+                try{
+                    Job toPriority = in.take();
+                    priority.put(toPriority);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }  
+            }     
+        });
+        inThread.start(); 
+
+        // Take shortest job from priority and add to outQueue
+        Thread outThread = new Thread(()->{
+            int otherCounter = 0;
+            //add to out
+            while (otherCounter < numJobs){   // Keep adding jobs until you reach max Jobs 
+                try{  
+                    Job fromPriority = priority.take();
+                    outQueue.put(fromPriority);
+                    otherCounter++;               
+                } catch(InterruptedException e){
+                    e.printStackTrace();
+                }
             }
-
-            
-            //if return is negative job one is shorter
-            //if return is positive, job two is shorter
-            //if return is 0, jobs are same length
-                
-            return 0; 
-            
-        };     
-        
-        PriorityQueue<Job> priority = new PriorityQueue<Job>(numJobs, c);
-
-        
-
+        });
+        outThread.start();
     }   // */
 
     //DEAEDLINE - EDF(Earliest Deadline First) - Priority Queue
