@@ -182,12 +182,11 @@ public class MyScheduler {
                 try{  
                     //check if its gonn amke dealine
                     Job fromPriority = dpriority.take();
-                    //check if job gonn amke dealine
+                    //check if job gonn make dealine
                     //if its less add to outQueue
-                    if (System.currentTimeMillis() + fromPriority.getWaitTime() + fromPriority.getLength() < fromPriority.getDeadline()){  //if its less add to outQueue
-                        outQueue.put(fromPriority);
-                    }                    
-
+                   
+                    outQueue.put(fromPriority);
+                                     
                     otherCounter++;               
                 } catch(InterruptedException e){
                     e.printStackTrace();
