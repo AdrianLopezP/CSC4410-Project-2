@@ -11,19 +11,22 @@ import java.util.*;
 import java.util.Comparator;
 
 
+
 public class MyScheduler {
-    private String job;
+    private String property;
     private int numJobs;
     LinkedBlockingQueue<Job> inQueue;
     LinkedBlockingQueue<Job> outQueue;
-    int scalingFactorOut = 2;
+    int scalingFactorOut = 1;
     int scalingFactorIn = 2;
+    String propety;
     
     //MAIN CONSTRUCOR
     public MyScheduler(int numJobs, String property) {
         this.inQueue = new LinkedBlockingQueue<Job>(numJobs*scalingFactorIn);
-        this.outQueue = new LinkedBlockingQueue<Job>(numJobs*scalingFactorOut);
+        this.outQueue = new LinkedBlockingQueue<Job>(1);
         this.numJobs = numJobs;
+        this.property = property;
     }
 
     // Constructors
@@ -74,31 +77,29 @@ public class MyScheduler {
             }
         });
         outThread.start();
-
         //send off to cpu
         // me understando. intelligent monkeys
     }
     
     //AVG WAIT - SJF(Shortest Job First) - Priority queue
     public void avgWait(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out, int numJobs){
-        Comparator<Job> c = (one,two)-> {
-            
+        Comparator<Job> c = (one,two)-> { 
             long oneLength = one.getLength();
             long twoLength = two.getLength();
             
             //compare lengths of jobs
-            // if (oneLength < twolength){
-            //     return -1;   //if return is negative, job one is shorter
-            // }
-            // if (oneLength == twolength){
-            //     return 0;  //if return 0, jobs are same length
-            // }
-            // return 1;   //if return is postive, job one is longer
+            if (oneLength < twoLength){
+                return -1;   //if return is negative, job one is shorter
+            }
+            if (oneLength == twoLength){
+                return 0;  //if return 0, jobs are same length
+            }
+            return 1;   //if return is postive, job one is longer
 
-            return Long.compare(oneLength, twoLength);
-                       
+            //return Long.compare(oneLength, twoLength);          
         };  
         
+        //initialize priority queue with comparator c
         PriorityBlockingQueue<Job> priority = new PriorityBlockingQueue<>(numJobs, c);       
 
         // Take shortest job from inQueue then add to priority
@@ -106,8 +107,11 @@ public class MyScheduler {
             int counter = 0;
             while (counter < numJobs){ // Stop when we reach the number of max jobs
                 try{
+                    //take job from inqueue
                     Job toPriority = in.take();
+                    //put in priority queue, it should be sorted
                     priority.put(toPriority);
+                    counter++;
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }  
@@ -122,7 +126,7 @@ public class MyScheduler {
             while (otherCounter < numJobs){   // Keep adding jobs until you reach max Jobs 
                 try{  
                     Job fromPriority = priority.take();
-                    outQueue.put(fromPriority);
+                    outQueue.put(fromPriority);                
                     otherCounter++;               
                 } catch(InterruptedException e){
                     e.printStackTrace();
@@ -134,36 +138,83 @@ public class MyScheduler {
 
     //DEAEDLINE - EDF(Earliest Deadline First) - Priority Queue
    public void deadline(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
-    PriorityQueue<Job> priorityQueue = new PriorityQueue<>((a, b) -> Long.compare(a.getDeadline(), b.getDeadline()));
-    while (!in.isEmpty() || !priorityQueue.isEmpty()) {
-        try {
-            if (!in.isEmpty()) {
-                Job steve = in.take();
-                priorityQueue.offer(steve);
+        Comparator<Job> c = (one,two)-> {
+            long oneDeadline = one.getDeadline();
+            long twoDeadline = two.getDeadline();
+            
+            //compare lengths of jobs
+            if (oneDeadline < twoDeadline){
+                return -1;   //if return is negative, job one is shorter
             }
-            if (!priorityQueue.isEmpty()) {
-                Job steve = priorityQueue.poll();
-                out.put(steve);
+            if (oneDeadline == twoDeadline){
+                return 0;  //if return 0, jobs are same length
             }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
+            return 1;   //if return is postive, job one is longer
+
+            //return Long.compare(oneLength, twoLength);
+                       
+        };  
+        //initialize priority queue with comparator c
+        PriorityBlockingQueue<Job> dpriority = new PriorityBlockingQueue<>(numJobs, c);       
+
+        // Take shortest job from inQueue then add to priority
+        Thread inThread = new Thread(()->{
+            int counter = 0;
+            while (counter < numJobs){ // Stop when we reach the number of max jobs
+                try{
+                    //take job from inqueue
+                    Job toPriority = in.take();
+                    //put in priority queue, it should be sorted
+                    dpriority.put(toPriority);
+                    counter++;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }  
+            }     
+        });
+        inThread.start(); 
+
+        // Take shortest deadline from priority and add to outQueue
+        Thread outThread = new Thread(()->{
+            int otherCounter = 0;
+            //add to out
+            while (otherCounter < numJobs){   // Keep adding jobs until you reach max Jobs 
+                try{  
+                    //check if its gonn amke dealine
+                    Job fromPriority = dpriority.take();
+                    //check if job gonn amke dealine
+                    //if its less add to outQueue
+                    if (System.currentTimeMillis() + fromPriority.getWaitTime() + fromPriority.getLength() < fromPriority.getDeadline()){  //if its less add to outQueue
+                        outQueue.put(fromPriority);
+                    }                    
+
+                    otherCounter++;               
+                } catch(InterruptedException e){
+                    e.printStackTrace();
+                }
+            }
+        });
+        outThread.start();
 }
 
     //COMBINED - Fancy(Max wait + 2(Average Wait) ?????
     public void combined(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
         
     }
-
-
-
     
     public void run() {
-        maxWait(numJobs, inQueue, outQueue);
-        avgWait(inQueue, outQueue, numJobs);
-        deadline(inQueue, outQueue);
-        combined(inQueue, outQueue);
-
+        switch (property) {
+            case "max wait":
+                maxWait(numJobs, inQueue, outQueue);
+                break;
+            case "avg wait":
+                avgWait(inQueue, outQueue, numJobs);
+            case "combined":
+                combined(inQueue, outQueue);
+            case "deadlines":
+                deadline(inQueue, outQueue);
+            default:
+                break;
+        }
     }
 }
