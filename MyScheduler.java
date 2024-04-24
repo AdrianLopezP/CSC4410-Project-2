@@ -126,7 +126,7 @@ public class MyScheduler {
             while (otherCounter < numJobs){   // Keep adding jobs until you reach max Jobs 
                 try{  
                     Job fromPriority = priority.take();
-                    outQueue.put(fromPriority);                
+                    out.put(fromPriority);                
                     otherCounter++;               
                 } catch(InterruptedException e){
                     e.printStackTrace();
@@ -137,26 +137,60 @@ public class MyScheduler {
     }   // */
 
     //DEAEDLINE - EDF(Earliest Deadline First) - Priority Queue
-   public void deadline(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
-        Comparator<Job> c = (one,two)-> {
-            long oneDeadline = one.getDeadline();
-            long twoDeadline = two.getDeadline();
-            
+   public void deadline(int numJobs, LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
+        // Blocking Queue for jobs that won't make deadline
+        BlockingQueue<Job> slowPokes = new LinkedBlockingQueue<Job>(numJobs);
+        //determine wether or not job will make deadline
+        Thread inThread = new Thread(()->{
+            int counter = 0;
+            while (counter < numJobs){ // Stop when we reach the number of max jobs
+                try{
+                    //take job from inqueue
+                    Job steve = in.take();
+                        //if job is gonna make the deadline, send to CPU
+                    if (System.currentTimeMillis() + steve.getLength() <= steve.getDeadline()){ 
+                        out.put(steve);
+                        //System.out.println("job added to out queue");
+                    } else {    //It's not gonna make the deadline, so send it to the queue of slowpokes
+                        slowPokes.put(steve);
+                        //System.out.println("job added to slow queue");
+                    }
+                    counter++;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }  
+            } 
+                //After all punctual jobs are completed, send these ones to the CPU
+            while (!slowPokes.isEmpty()){ 
+                try{  
+                    out.put(slowPokes.take());         
+                    System.out.println("slow job added to Outqueue");                    
+                } catch(InterruptedException e){
+                    e.printStackTrace();
+                }
+            }
+        });
+        inThread.start();
+    }
+
+    //COMBINED - Fancy(Max wait + 2(Average Wait) ?????
+    // Maybe?? SJF
+    public void combined(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
+       Comparator<Job> c = (one,two)-> { 
+            long oneLength = one.getLength();
+            long twoLength = two.getLength();  
             //compare lengths of jobs
-            if (oneDeadline < twoDeadline){
+            if (oneLength < twoLength){
                 return -1;   //if return is negative, job one is shorter
             }
-            if (oneDeadline == twoDeadline){
+            if (oneLength == twoLength){
                 return 0;  //if return 0, jobs are same length
             }
-            return 1;   //if return is postive, job one is longer
-
-            //return Long.compare(oneLength, twoLength);
-                       
+            return 1;   //if return is postive, job one is longer     
         };  
+        
         //initialize priority queue with comparator c
-        PriorityBlockingQueue<Job> dpriority = new PriorityBlockingQueue<>(numJobs, c);       
-
+        PriorityBlockingQueue<Job> priority = new PriorityBlockingQueue<>(numJobs, c);       
         // Take shortest job from inQueue then add to priority
         Thread inThread = new Thread(()->{
             int counter = 0;
@@ -165,7 +199,7 @@ public class MyScheduler {
                     //take job from inqueue
                     Job toPriority = in.take();
                     //put in priority queue, it should be sorted
-                    dpriority.put(toPriority);
+                    priority.put(toPriority);
                     counter++;
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -174,19 +208,14 @@ public class MyScheduler {
         });
         inThread.start(); 
 
-        // Take shortest deadline from priority and add to outQueue
+        // Take shortest job from priority and add to outQueue
         Thread outThread = new Thread(()->{
             int otherCounter = 0;
             //add to out
             while (otherCounter < numJobs){   // Keep adding jobs until you reach max Jobs 
                 try{  
-                    //check if its gonn amke dealine
-                    Job fromPriority = dpriority.take();
-                    //check if job gonn make dealine
-                    //if its less add to outQueue
-                   
-                    outQueue.put(fromPriority);
-                                     
+                    Job fromPriority = priority.take();
+                    out.put(fromPriority);                
                     otherCounter++;               
                 } catch(InterruptedException e){
                     e.printStackTrace();
@@ -194,12 +223,8 @@ public class MyScheduler {
             }
         });
         outThread.start();
-}
+    }  
 
-    //COMBINED - Fancy(Max wait + 2(Average Wait) ?????
-    public void combined(LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
-        
-    }
     
     public void run() {
         switch (property) {
@@ -211,7 +236,7 @@ public class MyScheduler {
             case "combined":
                 combined(inQueue, outQueue);
             case "deadlines":
-                deadline(inQueue, outQueue);
+                deadline(numJobs, inQueue, outQueue);
             default:
                 break;
         }
