@@ -11,7 +11,13 @@ import java.lang.*;
 public class SchedulerTester {
 
     //properties to measure
-    private static final String[] GOALS = {"max wait", "avg wait", /* "efficiency",*/ "combined", "deadlines"};
+    private static final String[] GOALS = {
+        "max wait", 
+        "avg wait",  
+        //"efficiency", 
+        "combined",  
+        "deadlines"
+        };
     
     
     //default number of jobs
@@ -122,11 +128,11 @@ public class SchedulerTester {
         avgWaitTimeGoals = Arrays.asList(new Integer[] {1500, 1600, 1700, 1800, 1900, 2100, 2500});
         combinedGoals = Arrays.asList(new Integer[] {6700, 7000, 7500, 8100, 8800, 9500, 10500});
         */
-        goals.put(GOALS[0], maxWaitTimeGoals);
-        goals.put(GOALS[1], avgWaitTimeGoals);
+        goals.put("max wait", maxWaitTimeGoals);
+        goals.put("avg wait", avgWaitTimeGoals);
         //goals.put("efficiency", efficiencyGoals);
-        goals.put(GOALS[2], combinedGoals);
-        goals.put(GOALS[3], deadlineGoals);
+        goals.put("combined", combinedGoals);
+        goals.put("deadlines", deadlineGoals);
         
     
         
