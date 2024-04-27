@@ -199,50 +199,49 @@ public class MyScheduler {
 
     //COMBINED - Fancy(Max wait + 2(Average Wait) ?????
     public void combined(int numJobs, LinkedBlockingQueue<Job> in, LinkedBlockingQueue<Job> out) {
-         Comparator<Job> c = (one,two)-> { 
-            long oneLength = one.getDeadline();
-            long twoLength = two.getDeadline();     
-            // //compare lengths of jobs
-            if (oneLength < twoLength){
-                return -1;   //if return is negative, deadline one is sooner
-            }
-            if (oneLength == twoLength){
-                return 0;  //if return 0, dealines are same 
-            }
-            return 1;   //if return is postive, deadline one is longer
-            //return Long.compare(oneLength, twoLength);          
+        Comparator<Job> c = (one,two)-> { 
+            //longer wait means it goes sooner
+            //longer length means it goes later
+            
+            double onething = (2.5*one.getLength()) - one.getWaitTime();
+            double twothing = (2.5*two.getLength()) - two.getWaitTime();
+
+            return Double.compare(onething, twothing);          
         }; 
-
-        BlockingQueue<Job> newBQueue = new LinkedBlockingQueue<Job>();
+      
+        PriorityBlockingQueue<Job> pQ = new PriorityBlockingQueue<Job>(numJobs, c);
+        //BlockingQueue<Job> newBQueue = new LinkedBlockingQueue<Job>();
+       // Take shortest job from inQueue then add to priority
         Thread inThread = new Thread(()->{
-            int counter = 0;
-            // While there are jobs in the incoming queue add them to the new Blocking Queue
-            while (counter < numJobs){ // Stop when we reach the number of max jobs
-                try{
-                    Job steve = in.take();  //Grab a job from the incoming queue and save it into the temp queue
-                    newBQueue.put(steve);
-                    counter++;
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }  
-            }     
-        });
-        inThread.start();
+        int counter = 0;
+        while (counter < numJobs){ // Stop when we reach the number of max jobs
+            try{
+                //take job from inqueue
+                Job toPriority = in.take();
+                pQ.put(toPriority);
+                counter++;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }  
+        }     
+    });
+    inThread.start(); 
 
-        Thread outThread = new Thread(()->{
-            int otherCounter = 0;
-            //add to out
-            while (otherCounter < numJobs){   // Keep adding jobs until you reach max Jobs 
-                try{
-                    Job jobs = newBQueue.take();
-                    out.put(jobs);     
-                    otherCounter++;               
-                } catch(InterruptedException e){
-                    e.printStackTrace();
-                }
+    // Take shortest job from priority and add to outQueue
+    Thread outThread = new Thread(()->{
+        int otherCounter = 0;
+        //add to out
+        while (otherCounter < numJobs){   // Keep adding jobs until you reach max Jobs 
+            try{  
+                Job fromPriority = pQ.take();
+                outQueue.put(fromPriority);                
+                otherCounter++;               
+            } catch(InterruptedException e){
+                e.printStackTrace();
             }
-        });
-        outThread.start();
+        }
+    });
+    outThread.start();
     }  
     
     public void run() {
